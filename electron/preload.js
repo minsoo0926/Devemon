@@ -7,7 +7,7 @@ const { ipcRenderer } = require('electron');
 window.api = {
   send: (channel, data) => {
     // whitelist channels
-    let validChannels = ['exit-app'];
+    let validChannels = ['exit-app', 'keystroke'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }

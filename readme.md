@@ -15,6 +15,7 @@ Devemon is a small desktop widget that runs in the background and monitors your 
 - Fire eyes when typing speed exceeds 100 SPM
 - Character evolution based on level
 - Level progression system with exponential difficulty
+- Global keyboard monitoring without needing focus
 
 ## Character Evolution
 
@@ -91,6 +92,24 @@ yarn build
 
 The Devemon widget will appear on your screen, staying on top of other windows. As you type in your IDE or text editor, Devemon will count your keystrokes and level up accordingly.
 
+## Global Keyboard Monitoring
+
+Devemon monitors keystrokes globally across your system, meaning:
+
+- You don't need to focus on the Devemon window
+- It works while you're coding in any application
+- Your SPM (strokes per minute) is calculated based on keystrokes in the last 60 seconds
+- Your character evolves as you type more
+
+**Note**: This feature uses Electron's globalShortcut API, which allows the app to detect keystrokes globally but also forwards them to your applications. Some special key combinations might be intercepted - in such cases, just temporarily close Devemon.
+
+## Permissions
+
+On first run, you may need to grant certain permissions:
+
+- **macOS**: You might need to allow Accessibility permissions in System Preferences > Security & Privacy > Privacy > Accessibility
+- **Windows**: You might need to run the app as Administrator the first time
+
 ## Customizing Character Faces
 
 You can customize the character faces by editing the `characterStates` object in `/renderer/renderer.js`. This allows you to define your own custom faces for each evolution stage and state (normal/fire).
@@ -109,18 +128,9 @@ const characterStates = {
 
 The application is built with Electron and consists of:
 
-- `electron/main.js`: Main Electron process that handles keyboard monitoring and level calculations
+- `electron/main.js`: Main Electron process that handles global keyboard monitoring and level calculations
 - `electron/preload.js`: Preload script for secure IPC communication
 - `renderer/`: Contains the UI components (HTML, CSS, JS)
-
-## Keyboard Monitoring
-
-Devemon uses Electron's globalShortcut API to monitor keystrokes. This method doesn't require native dependencies but has some limitations:
-
-1. It can only detect keystrokes when the app has focus
-2. It may not detect all keypresses in all applications
-
-For the best experience, you may want to keep the Devemon window visible while coding.
 
 ## License
 
