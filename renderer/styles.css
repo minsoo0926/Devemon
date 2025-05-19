@@ -10,7 +10,7 @@ body {
 
 .container {
   width: 200px;
-  height: 300px; /* Increased height for info message */
+  height: 330px; /* Increased height for name tag */
   background-color: rgba(248, 248, 248, 0.9);
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -20,6 +20,60 @@ body {
   justify-content: center;
   padding: 10px;
   box-sizing: border-box;
+}
+
+.name-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.name-tag {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 3px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background-color 0.2s;
+}
+
+.name-tag:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.name-edit {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+#name-input {
+  width: 100px;
+  padding: 3px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 14px;
+  margin-right: 5px;
+}
+
+#save-name-btn {
+  padding: 3px 8px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#save-name-btn:hover {
+  background-color: #45a049;
 }
 
 .character {

@@ -16,6 +16,8 @@ Devemon is a small desktop widget that runs in the background and monitors your 
 - Character evolution based on level
 - Level progression system with exponential difficulty
 - Global keyboard monitoring without needing focus
+- Custom naming for your Devemon
+- Persistent progress saving
 
 ## Character Evolution
 
@@ -92,6 +94,24 @@ yarn build
 
 The Devemon widget will appear on your screen, staying on top of other windows. As you type in your IDE or text editor, Devemon will count your keystrokes and level up accordingly.
 
+## Naming Your Devemon
+
+Click on the name tag at the top of the widget to give your Devemon a custom name. Your chosen name will be saved along with your progress.
+
+## Progress Saving
+
+Devemon automatically saves your progress to your local user data directory. This includes:
+- Your Devemon's name
+- Current level
+- Keystroke count
+
+Your progress is saved:
+- Every 60 seconds while the app is running
+- When you change your Devemon's name
+- When you close the application
+
+When you restart the app, your Devemon will be exactly as you left it!
+
 ## Global Keyboard Monitoring
 
 Devemon monitors keystrokes globally across your system, meaning:
@@ -100,8 +120,6 @@ Devemon monitors keystrokes globally across your system, meaning:
 - It works while you're coding in any application
 - Your SPM (strokes per minute) is calculated based on keystrokes in the last 60 seconds
 - Your character evolves as you type more
-
-**Note**: This feature uses Electron's globalShortcut API, which allows the app to detect keystrokes globally but also forwards them to your applications. Some special key combinations might be intercepted - in such cases, just temporarily close Devemon.
 
 ## Permissions
 
@@ -128,7 +146,7 @@ const characterStates = {
 
 The application is built with Electron and consists of:
 
-- `electron/main.js`: Main Electron process that handles global keyboard monitoring and level calculations
+- `electron/main.js`: Main Electron process that handles global keyboard monitoring, level calculations, and data persistence
 - `electron/preload.js`: Preload script for secure IPC communication
 - `renderer/`: Contains the UI components (HTML, CSS, JS)
 

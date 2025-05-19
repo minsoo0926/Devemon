@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { GlobalKeyboardListener } = require('node-global-key-listener');
 
 // 키보드 리스너 인스턴스 생성
@@ -11,10 +12,59 @@ let keystrokeCount = 0;
 let currentLevel = 1;
 let levelProgress = 0;
 let keystrokesToNextLevel = 100; // 레벨 1의 초기값
+let devemonName = "Unnamed"; // 기본 이름
 
 // SPM 추적
 let keystrokesInLastMinute = [];
 let currentSPM = 0;
+
+// 데이터 파일 경로
+const userDataPath = app.getPath('userData');
+const saveFilePath = path.join(userDataPath, 'devemon-data.json');
+
+// 애플리케이션 데이터 로드
+function loadData() {
+  try {
+    if (fs.existsSync(saveFilePath)) {
+      const data = JSON.parse(fs.readFileSync(saveFilePath, 'utf8'));
+      keystrokeCount = data.keystrokeCount || 0;
+      currentLevel = data.level || 1;
+      devemonName = data.name || "Unnamed";
+      
+      // 레벨에 맞는 다음 레벨까지 필요한 키 입력 수 계산
+      keystrokesToNextLevel = calculateKeystrokesForLevel(currentLevel);
+      
+      console.log('Data loaded:', { keystrokeCount, currentLevel, devemonName });
+      return true;
+    }
+  } catch (error) {
+    console.error('Error loading data:', error);
+  }
+  return false;
+}
+
+// 애플리케이션 데이터 저장
+function saveData() {
+  try {
+    const data = {
+      keystrokeCount,
+      level: currentLevel,
+      name: devemonName
+    };
+    
+    // 사용자 데이터 디렉토리가 없으면 생성
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+    
+    fs.writeFileSync(saveFilePath, JSON.stringify(data));
+    console.log('Data saved successfully');
+    return true;
+  } catch (error) {
+    console.error('Error saving data:', error);
+    return false;
+  }
+}
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -22,7 +72,7 @@ function createWindow() {
   // 브라우저 창 생성
   mainWindow = new BrowserWindow({
     width: 200,
-    height: 300,
+    height: 330, // 이름 태그를 위해 높이 증가
     x: width - 220, // 오른쪽 가장자리 근처에 위치
     y: 100,
     frame: false,
@@ -58,6 +108,11 @@ function createWindow() {
     updateSPM();
   }, 1000);
 
+  // 데이터 저장 (60초마다)
+  setInterval(() => {
+    saveData();
+  }, 60000);
+
   // 창에서 드래그 가능하도록 설정
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.executeJavaScript(`
@@ -68,6 +123,7 @@ function createWindow() {
 
   // 창 닫기 처리
   mainWindow.on('closed', () => {
+    saveData(); // 종료 시 데이터 저장
     mainWindow = null;
     keyboardListener.kill(); // 키보드 리스너 종료
   });
@@ -116,10 +172,19 @@ function sendStatsToRenderer() {
       keystrokeCount,
       currentLevel,
       levelProgress,
-      spm: currentSPM
+      spm: currentSPM,
+      name: devemonName
     });
   }
 }
+
+// 이름 변경 처리
+ipcMain.on('update-name', (event, newName) => {
+  if (newName && newName.trim() !== '') {
+    devemonName = newName.trim();
+    saveData(); // 이름이 변경되면 즉시 저장
+  }
+});
 
 // 테스트용 - 렌더러에서 키 입력 수신
 ipcMain.on('keystroke', () => {
@@ -129,12 +194,16 @@ ipcMain.on('keystroke', () => {
 
 // IPC 핸들러
 ipcMain.on('exit-app', () => {
+  saveData(); // 종료 전 데이터 저장
   keyboardListener.kill(); // 종료 전 키보드 리스너 정리
   app.quit();
 });
 
 // Electron 초기화가 완료되면 이 메소드가 호출됨
 app.whenReady().then(() => {
+  // 저장된 데이터 로드
+  loadData();
+  
   createWindow();
   
   app.on('activate', function () {
@@ -147,6 +216,7 @@ app.whenReady().then(() => {
 // macOS를 제외한 모든 창이 닫히면 종료
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
+    saveData(); // 종료 전 데이터 저장
     keyboardListener.kill(); // 종료 전 키보드 리스너 정리
     app.quit();
   }

@@ -1,4 +1,8 @@
 // DOM Elements
+const nameDisplay = document.getElementById('name-display');
+const nameEditContainer = document.getElementById('name-edit-container');
+const nameInput = document.getElementById('name-input');
+const saveNameBtn = document.getElementById('save-name-btn');
 const characterElement = document.querySelector('.character');
 const levelElement = document.querySelector('.level');
 const progressBar = document.querySelector('.progress-bar');
@@ -32,6 +36,38 @@ const characterStates = {
 
 // Current character evolution
 let currentEvolution = 'baby';
+
+// Name edit functionality
+nameDisplay.addEventListener('click', () => {
+  // Show edit form
+  nameDisplay.style.display = 'none';
+  nameEditContainer.style.display = 'flex';
+  nameInput.value = nameDisplay.textContent;
+  nameInput.focus();
+});
+
+// Save name button
+saveNameBtn.addEventListener('click', saveName);
+
+// Also save on Enter key
+nameInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    saveName();
+  }
+});
+
+// Function to save the name
+function saveName() {
+  const newName = nameInput.value.trim();
+  if (newName) {
+    nameDisplay.textContent = newName;
+    window.api.send('update-name', newName);
+  }
+  
+  // Hide edit form
+  nameDisplay.style.display = 'block';
+  nameEditContainer.style.display = 'none';
+}
 
 // Exit button handler
 exitButton.addEventListener('click', () => {
@@ -69,7 +105,12 @@ function getCharacterFace(level, spm) {
 }
 
 function updateUI(stats) {
-  const { keystrokeCount, currentLevel, levelProgress, spm } = stats;
+  const { keystrokeCount, currentLevel, levelProgress, spm, name } = stats;
+  
+  // Update name if provided
+  if (name && nameDisplay.style.display !== 'none') {
+    nameDisplay.textContent = name;
+  }
   
   // Update evolution stage if needed
   currentEvolution = getEvolutionStage(currentLevel);
