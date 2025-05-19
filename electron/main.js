@@ -1,26 +1,29 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
-const os = require('os');
+const { GlobalKeyboardListener } = require('node-global-key-listener');
 
-// Keep a global reference of the window object to prevent garbage collection
+// 키보드 리스너 인스턴스 생성
+const keyboardListener = new GlobalKeyboardListener();
+
+// 전역 참조 - 가비지 컬렉션 방지
 let mainWindow;
 let keystrokeCount = 0;
 let currentLevel = 1;
 let levelProgress = 0;
-let keystrokesToNextLevel = 100; // Initial value for level 1
+let keystrokesToNextLevel = 100; // 레벨 1의 초기값
 
-// SPM tracking
+// SPM 추적
 let keystrokesInLastMinute = [];
 let currentSPM = 0;
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   
-  // Create the browser window
+  // 브라우저 창 생성
   mainWindow = new BrowserWindow({
     width: 200,
-    height: 300, // Increased height for info message
-    x: width - 220, // Position near the right edge
+    height: 300,
+    x: width - 220, // 오른쪽 가장자리 근처에 위치
     y: 100,
     frame: false,
     resizable: false,
@@ -33,126 +36,77 @@ function createWindow() {
     }
   });
 
-  // Load the index.html file
+  // index.html 파일 로드
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   
-  // For development
+  // 개발 모드
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
   
-  // Set up keyboard monitoring
+  // 키보드 모니터링 설정
   setupKeyboardMonitoring();
   
-  // Update UI with current stats every 100ms
+  // 현재 통계로 UI 업데이트 (100ms마다)
   setInterval(() => {
     updateLevelSystem();
     sendStatsToRenderer();
   }, 100);
 
-  // Update SPM calculation every second
+  // SPM 계산 업데이트 (1초마다)
   setInterval(() => {
     updateSPM();
   }, 1000);
 
-  // Handle window close
+  // 창에서 드래그 가능하도록 설정
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.executeJavaScript(`
+      document.body.style.webkitAppRegion = 'drag';
+      document.querySelector('.exit-button').style.webkitAppRegion = 'no-drag';
+    `);
+  });
+
+  // 창 닫기 처리
   mainWindow.on('closed', () => {
     mainWindow = null;
-    unregisterAllShortcuts();
+    keyboardListener.kill(); // 키보드 리스너 종료
   });
 }
 
-// List of keys to monitor
-const keysToMonitor = [
-  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
-  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
-  'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
-  'Space', 'Tab', 'Backspace', 'Delete', 'Enter', 'Up', 'Down', 'Left', 'Right',
-  'Home', 'End', 'PageUp', 'PageDown', 'Escape'
-];
-
-// Use common punctuation keys
-const punctuationKeys = [
-  ';', '=', ',', '-', '.', '/', '\\', '[', ']', '\''
-];
-
 function setupKeyboardMonitoring() {
-  // Register our keystroke monitoring function with all keys we want to monitor
-  for (const key of keysToMonitor) {
-    try {
-      globalShortcut.register(key, () => {
-        // This will be called when the key is pressed
-        keystrokeCount++;
-        keystrokesInLastMinute.push(Date.now());
-        
-        // We return false to allow the event to propagate to other applications
-        return false;
-      });
-    } catch (error) {
-      console.error(`Failed to register key: ${key}`, error);
+  // 키 눌림 이벤트 리스너 등록
+  keyboardListener.addListener(function(e, down) {
+    if (down) {
+      // 키가 눌렸을 때만 카운트
+      keystrokeCount++;
+      keystrokesInLastMinute.push(Date.now());
     }
-  }
-  
-  // Register punctuation keys
-  for (const key of punctuationKeys) {
-    try {
-      globalShortcut.register(key, () => {
-        keystrokeCount++;
-        keystrokesInLastMinute.push(Date.now());
-        return false;
-      });
-    } catch (error) {
-      console.error(`Failed to register punctuation key: ${key}`, error);
-    }
-  }
-  
-  // Register modifier key combinations
-  const modifiers = ['CommandOrControl', 'Alt', 'Shift'];
-  const baseKeys = ['A', 'S', 'C', 'V', 'X', 'Z']; // Common shortcut keys
-  
-  for (const modifier of modifiers) {
-    for (const baseKey of baseKeys) {
-      try {
-        globalShortcut.register(`${modifier}+${baseKey}`, () => {
-          keystrokeCount++;
-          keystrokesInLastMinute.push(Date.now());
-          return false;
-        });
-      } catch (error) {
-        console.error(`Failed to register modifier: ${modifier}+${baseKey}`, error);
-      }
-    }
-  }
-}
-
-function unregisterAllShortcuts() {
-  globalShortcut.unregisterAll();
+  });
 }
 
 function updateSPM() {
-  // Remove keystrokes older than 1 minute
+  // 1분보다 오래된 키 입력 제거
   const oneMinuteAgo = Date.now() - 60000;
   keystrokesInLastMinute = keystrokesInLastMinute.filter(timestamp => timestamp > oneMinuteAgo);
   
-  // Calculate current SPM
+  // 현재 SPM 계산
   currentSPM = keystrokesInLastMinute.length;
 }
 
 function calculateKeystrokesForLevel(level) {
-  // Same exponential curve as Python version
+  // Python 버전과 동일한 지수 곡선
   return 100 * Math.pow(2, level - 1);
 }
 
 function updateLevelSystem() {
-  // Check if we've reached the next level
+  // 다음 레벨에 도달했는지 확인
   while (keystrokeCount >= keystrokesToNextLevel) {
     currentLevel++;
     keystrokeCount -= keystrokesToNextLevel;
     keystrokesToNextLevel = calculateKeystrokesForLevel(currentLevel);
   }
   
-  // Calculate level progress (0.0 to 1.0)
+  // 레벨 진행 상황 계산 (0.0에서 1.0)
   levelProgress = keystrokeCount / keystrokesToNextLevel;
 }
 
@@ -167,29 +121,33 @@ function sendStatsToRenderer() {
   }
 }
 
-// Receive keystrokes from renderer (for testing)
+// 테스트용 - 렌더러에서 키 입력 수신
 ipcMain.on('keystroke', () => {
   keystrokeCount++;
   keystrokesInLastMinute.push(Date.now());
 });
 
-// IPC handlers
+// IPC 핸들러
 ipcMain.on('exit-app', () => {
+  keyboardListener.kill(); // 종료 전 키보드 리스너 정리
   app.quit();
 });
 
-// This method will be called when Electron has finished initialization
+// Electron 초기화가 완료되면 이 메소드가 호출됨
 app.whenReady().then(() => {
   createWindow();
   
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
+    // macOS에서는 dock 아이콘을 클릭하고 다른 창이 열려 있지 않을 때
+    // 앱에서 창을 다시 생성하는 것이 일반적입니다.
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Quit when all windows are closed, except on macOS
+// macOS를 제외한 모든 창이 닫히면 종료
 app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    keyboardListener.kill(); // 종료 전 키보드 리스너 정리
+    app.quit();
+  }
 });
