@@ -26,6 +26,7 @@ let currentLevel = 1;
 let levelProgress = 0;
 let keystrokesToNextLevel = 100; // 레벨 1의 초기값
 let devemonName = "Unnamed"; // 기본 이름
+let timeout = false;
 
 // SPM 추적
 let keystrokesInLastMinute = [];
@@ -195,6 +196,10 @@ function setupKeyboardMonitoring() {
         cumulativeKeystrokeCount++; // 누적 키 입력 수 증가
         keystrokesInLastMinute.push(Date.now());
         keyup = false;
+        if(timeout) {
+          mainWindow.webContents.send('keystroke-after-timeout');
+          timeout = false;
+        }
       }
       if (e && e.state === "UP") {
         keyup = true;
@@ -203,10 +208,10 @@ function setupKeyboardMonitoring() {
     
     console.log('Keyboard monitoring set up successfully');
     
-    // 5초 후에 테스트 메시지 출력
+    // 1분 후에 테스트 메시지 출력
     setTimeout(() => {
       if (keystrokesInLastMinute.length === 0) {
-        console.log('Warning: No keystrokes detected in the last 5 seconds.');
+        console.log('Warning: No keystrokes detected in the last 1 minute.');
         console.log('This may indicate that the keyboard monitoring is not working properly.');
         console.log('Showing manual input button as fallback...');
         
@@ -215,11 +220,12 @@ function setupKeyboardMonitoring() {
           mainWindow.webContents.send('keyboard-monitor-error', {
             message: 'No keystrokes detected. Using manual input mode as fallback.'
           });
+          timeout = true;
         }
       } else {
-        console.log(`Detected ${keystrokesInLastMinute.length} keystrokes in the last 5 seconds.`);
+        console.log(`Detected ${keystrokesInLastMinute.length} keystrokes in the last 1 minute.`);
       }
-    }, 5000);
+    }, 60000);
   } catch (error) {
     console.error('Error setting up keyboard monitoring:', error);
     
@@ -251,8 +257,7 @@ function updateSPM() {
 }
 
 function calculateKeystrokesForLevel(level) {
-  // Python 버전과 동일한 지수 곡선
-  return 100 * Math.pow(2, level - 1);
+  return 100 * Math.pow(level, 2);
 }
 
 function updateLevelSystem() {

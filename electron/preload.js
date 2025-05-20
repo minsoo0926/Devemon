@@ -13,7 +13,7 @@ window.api = {
     }
   },
   receive: (channel, func) => {
-    let validChannels = ['stats-update', 'keyboard-monitor-error'];
+    let validChannels = ['stats-update', 'keyboard-monitor-error', 'keystroke-after-timeout'];
     if (validChannels.includes(channel)) {
       // Deliberately strip event as it includes `sender` 
       ipcRenderer.on(channel, (event, ...args) => func(...args));

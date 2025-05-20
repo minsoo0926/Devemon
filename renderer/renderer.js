@@ -95,8 +95,7 @@ window.api.receive('stats-update', (stats) => {
 
 // Handle keyboard monitoring errors
 window.api.receive('keyboard-monitor-error', (error) => {
-  console.error('Keyboard monitoring error:', error.message);
-  // Show manual keystroke button and retry button
+  console.log('Keyboard monitoring error:', error);
   manualKeystrokeBtn.style.display = 'block';
   retryButton.style.display = 'block';
   
@@ -113,6 +112,15 @@ window.api.receive('keyboard-monitor-error', (error) => {
   // 애플리케이션 빌드 시 메시지 추가
   document.querySelector('.info-message').textContent = 
     'Keyboard monitoring inactive. Using manual input mode. Click the green button to register keystrokes.';
+});
+
+// Handle keystroke after timeout
+window.api.receive('keystroke-after-timeout', () => {
+  console.log('Keyboard monitoring resumed');
+  manualKeystrokeBtn.style.display = 'none';
+  retryButton.style.display = 'none';
+  // Clear info message
+  document.querySelector('.info-message').textContent = '';
 });
 
 // Manual keystroke button handler
@@ -181,7 +189,7 @@ function updateUI(stats) {
   keystrokeCounter.textContent = `Keystrokes: ${cumulativeKeystrokeCount}`;
   
   // Update SPM counter and style
-  spmCounter.textContent = `SPM: ${spm}`;
+  spmCounter.textContent = `Per Minute: ${spm}`;
   
   // Add or remove 'on-fire' class based on SPM
   if (spm > 100) {
