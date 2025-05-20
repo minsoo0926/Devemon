@@ -7,13 +7,13 @@ const { ipcRenderer } = require('electron');
 window.api = {
   send: (channel, data) => {
     // whitelist channels
-    let validChannels = ['exit-app', 'keystroke', 'update-name'];
+    let validChannels = ['exit-app', 'keystroke', 'update-name', 'retry-keyboard-monitoring'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }
   },
   receive: (channel, func) => {
-    let validChannels = ['stats-update'];
+    let validChannels = ['stats-update', 'keyboard-monitor-error'];
     if (validChannels.includes(channel)) {
       // Deliberately strip event as it includes `sender` 
       ipcRenderer.on(channel, (event, ...args) => func(...args));

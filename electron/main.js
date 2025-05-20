@@ -1,14 +1,27 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { GlobalKeyboardListener } = require('node-global-key-listener');
+
+// 라이브러리 로딩 방식 개선
+let GlobalKeyboardListener;
+try {
+  const nodeGlobalKeyListener = require('node-global-key-listener');
+  GlobalKeyboardListener = nodeGlobalKeyListener.GlobalKeyboardListener;
+} catch (error) {
+  console.error('Failed to load node-global-key-listener:', error);
+}
+
+// 플랫폼 확인
+const isMac = process.platform === 'darwin';
 
 // 키보드 리스너 인스턴스 생성
-const keyboardListener = new GlobalKeyboardListener();
+let keyboardListener;
 
 // 전역 참조 - 가비지 컬렉션 방지
 let mainWindow;
 let keystrokeCount = 0;
+let keyup = false;
+let cumulativeKeystrokeCount = 0; // 누적 키 입력 수 추가
 let currentLevel = 1;
 let levelProgress = 0;
 let keystrokesToNextLevel = 100; // 레벨 1의 초기값
@@ -28,13 +41,14 @@ function loadData() {
     if (fs.existsSync(saveFilePath)) {
       const data = JSON.parse(fs.readFileSync(saveFilePath, 'utf8'));
       keystrokeCount = data.keystrokeCount || 0;
+      cumulativeKeystrokeCount = data.cumulativeKeystrokeCount || 0; // 누적 키 입력 수 로드
       currentLevel = data.level || 1;
       devemonName = data.name || "Unnamed";
       
       // 레벨에 맞는 다음 레벨까지 필요한 키 입력 수 계산
       keystrokesToNextLevel = calculateKeystrokesForLevel(currentLevel);
       
-      console.log('Data loaded:', { keystrokeCount, currentLevel, devemonName });
+      console.log('Data loaded:', { keystrokeCount, cumulativeKeystrokeCount, currentLevel, devemonName });
       return true;
     }
   } catch (error) {
@@ -48,6 +62,7 @@ function saveData() {
   try {
     const data = {
       keystrokeCount,
+      cumulativeKeystrokeCount, // 누적 키 입력 수 저장
       level: currentLevel,
       name: devemonName
     };
@@ -125,19 +140,100 @@ function createWindow() {
   mainWindow.on('closed', () => {
     saveData(); // 종료 시 데이터 저장
     mainWindow = null;
-    keyboardListener.kill(); // 키보드 리스너 종료
+    
+    // 키보드 리스너 종료
+    if (keyboardListener) {
+      keyboardListener.kill();
+    }
   });
 }
 
 function setupKeyboardMonitoring() {
-  // 키 눌림 이벤트 리스너 등록
-  keyboardListener.addListener(function(e, down) {
-    if (down) {
-      // 키가 눌렸을 때만 카운트
-      keystrokeCount++;
-      keystrokesInLastMinute.push(Date.now());
+  try {
+    // 라이브러리가 로드되었는지 확인
+    if (!GlobalKeyboardListener) {
+      throw new Error('GlobalKeyboardListener is not available');
     }
-  });
+
+    // 여러 번 시도하기 위한 옵션 설정
+    const options = {
+      windows: {
+        // Windows 설정
+      },
+      mac: {
+        // Mac 설정
+        processOtherKeys: true,  // 다른 키 처리 활성화
+        captureOnlyInputs: false // 모든 키 캡처
+      }
+    };
+
+    console.log('Creating GlobalKeyboardListener with platform-specific options');
+    
+    // 경로 디버깅 출력
+    console.log('App path:', app.getAppPath());
+    console.log('Module path:', require.resolve('node-global-key-listener'));
+    
+    // 인스턴스 생성
+    keyboardListener = new GlobalKeyboardListener(options);
+    
+    if (!keyboardListener) {
+      throw new Error('Failed to create keyboardListener instance');
+    }
+    
+    // 키 눌림 이벤트 리스너 등록
+    keyboardListener.addListener(function(e, down) {
+      if (e && e.state === "DOWN" && keyup) {
+        // 디버깅용 로그 추가
+        console.log('Key pressed:', e.name, e.state);
+        // 키가 눌렸을 때만 카운트
+        keystrokeCount++;
+        cumulativeKeystrokeCount++; // 누적 키 입력 수 증가
+        keystrokesInLastMinute.push(Date.now());
+        keyup = false;
+      }
+      if (e && e.state === "UP") {
+        keyup = true;
+      }
+    });
+    
+    console.log('Keyboard monitoring set up successfully');
+    
+    // 5초 후에 테스트 메시지 출력
+    setTimeout(() => {
+      if (keystrokesInLastMinute.length === 0) {
+        console.log('Warning: No keystrokes detected in the last 5 seconds.');
+        console.log('This may indicate that the keyboard monitoring is not working properly.');
+        console.log('Showing manual input button as fallback...');
+        
+        // 자동으로 수동 입력 버튼 표시
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('keyboard-monitor-error', {
+            message: 'No keystrokes detected. Using manual input mode as fallback.'
+          });
+        }
+      } else {
+        console.log(`Detected ${keystrokesInLastMinute.length} keystrokes in the last 5 seconds.`);
+      }
+    }, 5000);
+  } catch (error) {
+    console.error('Error setting up keyboard monitoring:', error);
+    
+    // If keyboard monitoring fails, notify the UI
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      let errorMessage = 'Failed to set up keyboard monitoring.';
+      
+      if (isMac) {
+        errorMessage = 'macOS requires Input Monitoring permission for keyboard tracking.';
+        
+        // Show notification about macOS permissions
+        console.log('macOS requires Input Monitoring permission for keyboard tracking.');
+      }
+      
+      mainWindow.webContents.send('keyboard-monitor-error', {
+        message: errorMessage
+      });
+    }
+  }
 }
 
 function updateSPM() {
@@ -170,10 +266,12 @@ function sendStatsToRenderer() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('stats-update', {
       keystrokeCount,
+      cumulativeKeystrokeCount, // 누적 키 입력 수 전송
       currentLevel,
       levelProgress,
       spm: currentSPM,
-      name: devemonName
+      name: devemonName,
+      isMacOS: isMac
     });
   }
 }
@@ -188,14 +286,37 @@ ipcMain.on('update-name', (event, newName) => {
 
 // 테스트용 - 렌더러에서 키 입력 수신
 ipcMain.on('keystroke', () => {
+  console.log('Manual keystroke received from renderer');
   keystrokeCount++;
+  cumulativeKeystrokeCount++; // 누적 키 입력 수 증가
   keystrokesInLastMinute.push(Date.now());
+});
+
+// 키보드 모니터링 재시도
+ipcMain.on('retry-keyboard-monitoring', () => {
+  console.log('Retrying keyboard monitoring...');
+  if (keyboardListener) {
+    try {
+      keyboardListener.kill();
+    } catch (error) {
+      console.error('Error killing keyboard listener:', error);
+    }
+  }
+  
+  setTimeout(() => {
+    setupKeyboardMonitoring();
+  }, 500);
 });
 
 // IPC 핸들러
 ipcMain.on('exit-app', () => {
   saveData(); // 종료 전 데이터 저장
-  keyboardListener.kill(); // 종료 전 키보드 리스너 정리
+  
+  // 키보드 리스너 정리
+  if (keyboardListener) {
+    keyboardListener.kill();
+  }
+  
   app.quit();
 });
 
@@ -217,7 +338,12 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
     saveData(); // 종료 전 데이터 저장
-    keyboardListener.kill(); // 종료 전 키보드 리스너 정리
+    
+    // 키보드 리스너 정리
+    if (keyboardListener) {
+      keyboardListener.kill();
+    }
+    
     app.quit();
   }
 });

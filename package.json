@@ -25,13 +25,31 @@
       "electron/**/*",
       "renderer/**/*",
       "assets/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/**/*"
     ],
     "directories": {
       "buildResources": "assets"
     },
+    "extraResources": [
+      {
+        "from": "node_modules/node-global-key-listener/build/Release/",
+        "to": "node_modules/node-global-key-listener/build/Release/",
+        "filter": ["**/*"]
+      }
+    ],
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSInputMonitoringUsageDescription": "앱이 키 입력을 감지하기 위해 입력 모니터링 권한이 필요합니다.",
+        "NSAppleEventsUsageDescription": "앱이 키보드 입력을 감지하기 위해 Apple Events 권한이 필요합니다.",
+        "NSAccessibilityUsageDescription": "앱이 키보드 입력을 감지하기 위해 접근성 권한이 필요합니다.",
+        "LSUIElement": false
+      }
     },
     "win": {
       "target": "nsis"

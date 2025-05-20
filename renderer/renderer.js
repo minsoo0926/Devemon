@@ -10,6 +10,20 @@ const keystrokeCounter = document.querySelector('.keystroke-counter');
 const spmCounter = document.querySelector('.spm-counter');
 const exitButton = document.querySelector('.exit-button');
 
+// Manual keystroke button (hidden by default, shown if keyboard monitoring fails)
+let manualKeystrokeBtn = document.createElement('button');
+manualKeystrokeBtn.innerText = 'Click for Keystroke';
+manualKeystrokeBtn.className = 'manual-keystroke-btn';
+manualKeystrokeBtn.style.display = 'none';
+document.querySelector('.stats-container').appendChild(manualKeystrokeBtn);
+
+// Retry keyboard monitoring button (hidden by default, shown if keyboard monitoring fails)
+let retryButton = document.createElement('button');
+retryButton.innerText = 'Retry Keyboard Monitoring';
+retryButton.className = 'retry-btn';
+retryButton.style.display = 'none';
+document.querySelector('.stats-container').appendChild(retryButton);
+
 // Character states based on evolution level
 const characterStates = {
   baby: {
@@ -79,6 +93,42 @@ window.api.receive('stats-update', (stats) => {
   updateUI(stats);
 });
 
+// Handle keyboard monitoring errors
+window.api.receive('keyboard-monitor-error', (error) => {
+  console.error('Keyboard monitoring error:', error.message);
+  // Show manual keystroke button and retry button
+  manualKeystrokeBtn.style.display = 'block';
+  retryButton.style.display = 'block';
+  
+  // 에러 메시지가 "No keystrokes detected"인 경우에는 자동으로 경고창을 표시하지 않음
+  if (!error.message.includes('No keystrokes detected')) {
+    // Check if we're on macOS (platform is injected from main process in stats)
+    if (window.isMacOS) {
+      alert('Keyboard monitoring requires permission on macOS.\n\nPlease allow "Input Monitoring" permission in System Settings > Privacy & Security > Input Monitoring for Devemon.\n\nAfter granting permissions, click "Retry Keyboard Monitoring" or use the manual keystroke button.');
+    } else {
+      alert('Keyboard monitoring failed. Please click "Retry Keyboard Monitoring" or use the manual keystroke button instead.');
+    }
+  }
+  
+  // 애플리케이션 빌드 시 메시지 추가
+  document.querySelector('.info-message').textContent = 
+    'Keyboard monitoring inactive. Using manual input mode. Click the green button to register keystrokes.';
+});
+
+// Manual keystroke button handler
+manualKeystrokeBtn.addEventListener('click', () => {
+  window.api.send('keystroke');
+});
+
+// Retry button handler
+retryButton.addEventListener('click', () => {
+  // Send message to main process to retry keyboard monitoring
+  window.api.send('retry-keyboard-monitoring');
+  
+  // Show message to user
+  alert('Retrying keyboard monitoring. If you just granted permissions, this should work now.');
+});
+
 function getEvolutionStage(level) {
   if (level < 5) return 'baby';
   if (level < 10) return 'child';
@@ -105,12 +155,15 @@ function getCharacterFace(level, spm) {
 }
 
 function updateUI(stats) {
-  const { keystrokeCount, currentLevel, levelProgress, spm, name } = stats;
+  const { keystrokeCount, cumulativeKeystrokeCount, currentLevel, levelProgress, spm, name, isMacOS } = stats;
   
   // Update name if provided
   if (name && nameDisplay.style.display !== 'none') {
     nameDisplay.textContent = name;
   }
+  
+  // Store platform info
+  window.isMacOS = isMacOS;
   
   // Update evolution stage if needed
   currentEvolution = getEvolutionStage(currentLevel);
@@ -125,7 +178,7 @@ function updateUI(stats) {
   progressBar.style.width = `${levelProgress * 100}%`;
   
   // Update keystroke counter
-  keystrokeCounter.textContent = `Keystrokes: ${keystrokeCount}`;
+  keystrokeCounter.textContent = `Keystrokes: ${cumulativeKeystrokeCount}`;
   
   // Update SPM counter and style
   spmCounter.textContent = `SPM: ${spm}`;
