@@ -101,6 +101,11 @@ function createWindow() {
     }
   });
 
+  if(isMac) {
+    // Always on workspace
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
+  
   // index.html 파일 로드
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   
