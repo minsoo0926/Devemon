@@ -318,6 +318,34 @@ ipcMain.on('retry-keyboard-monitoring', () => {
   }, 500);
 });
 
+// 데이터 리셋 처리
+ipcMain.on('reset-data', () => {
+  console.log('Resetting all data...');
+  
+  // 모든 데이터 초기화
+  keystrokeCount = 0;
+  cumulativeKeystrokeCount = 0;
+  currentLevel = 1;
+  levelProgress = 0;
+  keystrokesToNextLevel = 100;
+  devemonName = "Unnamed";
+  keystrokesInLastMinute = [];
+  currentSPM = 0;
+  
+  // 데이터 파일 삭제
+  try {
+    if (fs.existsSync(saveFilePath)) {
+      fs.unlinkSync(saveFilePath);
+      console.log('Data file deleted successfully');
+    }
+  } catch (error) {
+    console.error('Error deleting data file:', error);
+  }
+  
+  // UI 업데이트
+  sendStatsToRenderer();
+});
+
 // IPC 핸들러
 ipcMain.on('exit-app', () => {
   saveData(); // 종료 전 데이터 저장

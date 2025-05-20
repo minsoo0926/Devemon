@@ -9,6 +9,7 @@ const progressBar = document.querySelector('.progress-bar');
 const keystrokeCounter = document.querySelector('.keystroke-counter');
 const spmCounter = document.querySelector('.spm-counter');
 const exitButton = document.querySelector('.exit-button');
+const resetButton = document.querySelector('.reset-button');
 
 // Manual keystroke button (hidden by default, shown if keyboard monitoring fails)
 let manualKeystrokeBtn = document.createElement('button');
@@ -135,6 +136,13 @@ retryButton.addEventListener('click', () => {
   
   // Show message to user
   alert('Retrying keyboard monitoring. If you just granted permissions, this should work now.');
+});
+
+// Reset button handler
+resetButton.addEventListener('click', () => {
+  if (confirm('Are you sure you want to reset all data? This cannot be undone.')) {
+    window.api.send('reset-data');
+  }
 });
 
 function getEvolutionStage(level) {
