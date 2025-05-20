@@ -121,13 +121,9 @@ function createWindow() {
   // 현재 통계로 UI 업데이트 (100ms마다)
   setInterval(() => {
     updateLevelSystem();
+    updateSPM();
     sendStatsToRenderer();
   }, 100);
-
-  // SPM 계산 업데이트 (1초마다)
-  setInterval(() => {
-    updateSPM();
-  }, 1000);
 
   // 데이터 저장 (60초마다)
   setInterval(() => {
@@ -315,7 +311,7 @@ ipcMain.on('retry-keyboard-monitoring', () => {
   
   setTimeout(() => {
     setupKeyboardMonitoring();
-  }, 500);
+  }, 60000);
 });
 
 // 데이터 리셋 처리

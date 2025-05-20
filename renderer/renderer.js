@@ -146,10 +146,10 @@ resetButton.addEventListener('click', () => {
 });
 
 function getEvolutionStage(level) {
-  if (level < 5) return 'baby';
-  if (level < 10) return 'child';
-  if (level < 15) return 'teen';
-  if (level < 20) return 'adult';
+  if (level <= 5) return 'baby';
+  if (level <= 10) return 'child';
+  if (level <= 15) return 'teen';
+  if (level <= 20) return 'adult';
   return 'master';
 }
 
@@ -158,7 +158,7 @@ function getCharacterFace(level, spm) {
   const evolutionStage = getEvolutionStage(level);
   
   // Determine if we should show fire eyes
-  const onFire = spm > 100;
+  const onFire = spm >= 100;
   
   // Get the appropriate character set
   const characterSet = onFire 
@@ -200,7 +200,7 @@ function updateUI(stats) {
   spmCounter.textContent = `Per Minute: ${spm}`;
   
   // Add or remove 'on-fire' class based on SPM
-  if (spm > 100) {
+  if (spm >= 100) {
     spmCounter.classList.add('on-fire');
   } else {
     spmCounter.classList.remove('on-fire');
